@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 BLE</title>
+</head>
+<body>
+  <h1>ESP32 BLE Web</h1>
+  <button onclick="connectBLE()">Kết nối ESP32</button><br><br>
+
+  <input type="text" id="inputText" placeholder="Gửi tới ESP32"/>
+  <button onclick="sendData()">Gửi</button>
+
+  <h3>Dữ liệu từ ESP32:</h3>
+  <div id="output"></div>
+
+  <script>
+    let bleCharacteristic;
+
+    async function connectBLE() {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'ESP32-BLE' }],
+        optionalServices: ['12345678-1234-1234-1234-1234567890ab']
+      });
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService('12345678-1234-1234-1234-1234567890ab');
+      bleCharacteristic = await service.getCharacteristic('abcd1234-5678-90ab-cdef-1234567890ab');
+
+      bleCharacteristic.startNotifications();
+      bleCharacteristic.addEventListener('characteristicvaluechanged', event => {
+        const decoder = new TextDecoder('utf-8');
+        const value = decoder.decode(event.target.value);
+        document.getElementById("output").innerText = value;
+      });
+
+      alert("Đã kết nối BLE!");
+    }
+
+    function sendData() {
+      const text = document.getElementById("inputText").value;
+      const encoder = new TextEncoder();
+      bleCharacteristic.writeValue(encoder.encode(text));
+    }
+  </script>
+</body>
+</html>

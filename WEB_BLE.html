@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 BLE</title>
+  <meta charset="UTF-8">
+</head>
+<body>
+  <h1>ESP32 BLE</h1>
+
+  <button onclick="connectBLE()">Kết nối ESP32</button>
+  <br><br>
+
+  <!-- Nút điều khiển LED -->
+  <button onclick="sendData('1')">Bật LED</button>
+  <button onclick="sendData('0')">Tắt LED</button>
+
+  <h3>Dữ liệu cảm biến:</h3>
+  <p id="temp">Nhiệt độ: --</p>
+  <p id="hum">Độ ẩm: --</p>
+  <p id="led">Trạng thái LED: --</p>
+
+  <script>
+    let ledCharacteristic;
+
+    // UUID service và các đặc tính giống ESP32
+    const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
+    const TEMP_UUID    = "abcd0001-5678-90ab-cdef-1234567890ab";
+    const HUM_UUID     = "abcd0002-5678-90ab-cdef-1234567890ab";
+    const LED_UUID     = "abcd0003-5678-90ab-cdef-1234567890ab";
+
+    async function connectBLE() {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: 'ESP32-BLE' }],
+          optionalServices: [SERVICE_UUID]
+        });
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+
+        // Lấy các đặc tính
+        const tempChar = await service.getCharacteristic(TEMP_UUID);
+        const humChar  = await service.getCharacteristic(HUM_UUID);
+        ledCharacteristic = await service.getCharacteristic(LED_UUID);
+
+        // Đăng ký notify cho nhiệt độ
+        await tempChar.startNotifications();
+        tempChar.addEventListener('characteristicvaluechanged', event => {
+          const value = new TextDecoder().decode(event.target.value);
+          document.getElementById("temp").innerText = "Nhiệt độ: " + value;
+        });
+
+        // Đăng ký notify cho độ ẩm
+        await humChar.startNotifications();
+        humChar.addEventListener('characteristicvaluechanged', event => {
+          const value = new TextDecoder().decode(event.target.value);
+          document.getElementById("hum").innerText = "Độ ẩm: " + value;
+        });
+
+        // Đăng ký notify cho LED
+        await ledCharacteristic.startNotifications();
+        ledCharacteristic.addEventListener('characteristicvaluechanged', event => {
+          const value = new TextDecoder().decode(event.target.value);
+          document.getElementById("led").innerText = "Trạng thái LED: " + value;
+        });
+
+        alert("Đã kết nối ESP32 BLE!");
+      } catch (error) {
+        console.error("Lỗi kết nối BLE:", error);
+      }
+    }
+
+    function sendData(value) {
+      if (!ledCharacteristic) {
+        alert("Chưa kết nối BLE!");
+        return;
+      }
+      const encoder = new TextEncoder();
+      ledCharacteristic.writeValue(encoder.encode(value));
+    }
+  </script>
+</body>
+</html>
